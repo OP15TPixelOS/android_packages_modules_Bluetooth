@@ -285,7 +285,7 @@ public final class BluetoothLeBroadcast implements AutoCloseable, BluetoothProfi
     @Override
     @RequiresNoPermission
     public int getConnectionState(@NonNull BluetoothDevice device) {
-        throw new UnsupportedOperationException("LE Audio Broadcasts are not connection-oriented.");
+        return BluetoothProfile.STATE_DISCONNECTED;
     }
 
     /** Not supported since LE Audio Broadcasts do not establish a connection. */
@@ -294,7 +294,7 @@ public final class BluetoothLeBroadcast implements AutoCloseable, BluetoothProfi
     @RequiresNoPermission
     @NonNull
     public List<BluetoothDevice> getDevicesMatchingConnectionStates(@NonNull int[] states) {
-        throw new UnsupportedOperationException("LE Audio Broadcasts are not connection-oriented.");
+        return Collections.emptyList();
     }
 
     /** Not supported since LE Audio Broadcasts do not establish a connection. */
@@ -302,7 +302,7 @@ public final class BluetoothLeBroadcast implements AutoCloseable, BluetoothProfi
     @Override
     @RequiresNoPermission
     public @NonNull List<BluetoothDevice> getConnectedDevices() {
-        throw new UnsupportedOperationException("LE Audio Broadcasts are not connection-oriented.");
+        return Collections.emptyList();
     }
 
     /**

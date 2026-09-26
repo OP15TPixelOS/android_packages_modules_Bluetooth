@@ -134,6 +134,87 @@ public class PhonePolicy implements AdapterService.BluetoothStateCallback {
      * @param profile The Bluetooth profile of which active state changed
      * @param device The device currently activated. {@code null} if no A2DP device activated
      */
+    /**
+     * Some bonded dual-mode headsets establish BR/EDR ACL first and wait for the phone to open
+     * their audio profiles. When a bonded device connects via BR/EDR ACL, trigger auto-connect
+     * for enabled audio profiles immediately if they are not already connecting or connected.
+     */
+    public void aclConnectionStateChanged(BluetoothDevice device, boolean connected) {
+        Log.i(TAG, "aclConnectionStateChanged(" + device + ", connected=" + connected + ")");
+        mHandler.post(
+                () -> {
+                    if (connected) {
+                        autoConnectAudioProfilesAfterAcl(device);
+                    }
+                });
+    }
+
+    private void autoConnectAudioProfilesAfterAcl(BluetoothDevice device) {
+        String log = "autoConnectAudioProfilesAfterAcl(" + device + "): ";
+        if (mAdapterService.getState() != State.ON || mAdapterService.isQuietModeEnabled()) {
+            Log.d(TAG, log + "Bluetooth is not available for auto-connect");
+            return;
+        }
+        if (mAdapterService.getBondState(device) != BluetoothDevice.BOND_BONDED) {
+            Log.d(TAG, log + "device is not bonded");
+            return;
+        }
+        if (!mAdapterService.isProfileSupported(device, BluetoothProfile.A2DP)
+                && !mAdapterService.isProfileSupported(device, BluetoothProfile.HEADSET)) {
+            Log.d(TAG, log + "no classic audio profile is supported");
+            return;
+        }
+
+        final var leAudio = mAdapterService.getLeAudioService();
+        if (leAudio.isPresent()) {
+            int leAudioState = leAudio.get().getConnectionState(device);
+            if (leAudioState != STATE_DISCONNECTED) {
+                Log.d(TAG, log + "LE Audio is already connecting or connected");
+                return;
+            }
+        }
+
+        final boolean hfpAllowed =
+                mAdapterService
+                        .getHeadsetService()
+                        .map(service -> service.getConnectionPolicy(device) > CONNECTION_POLICY_FORBIDDEN)
+                        .orElse(false);
+        final boolean a2dpAllowed =
+                mAdapterService
+                        .getA2dpService()
+                        .map(service -> service.getConnectionPolicy(device) > CONNECTION_POLICY_FORBIDDEN)
+                        .orElse(false);
+        if (!hfpAllowed && !a2dpAllowed) {
+            Log.d(TAG, log + "no enabled classic audio profile");
+            return;
+        }
+
+        final boolean isA2dpConnectedOrConnecting =
+                mAdapterService
+                        .getA2dpService()
+                        .map(service -> {
+                            int state = service.getConnectionState(device);
+                            return state == STATE_CONNECTED || state == STATE_CONNECTING;
+                        })
+                        .orElse(false);
+        final boolean isHfpConnectedOrConnecting =
+                mAdapterService
+                        .getHeadsetService()
+                        .map(service -> {
+                            int state = service.getConnectionState(device);
+                            return state == STATE_CONNECTED || state == STATE_CONNECTING;
+                        })
+                        .orElse(false);
+        if ((!a2dpAllowed || isA2dpConnectedOrConnecting)
+                && (!hfpAllowed || isHfpConnectedOrConnecting)) {
+            Log.d(TAG, log + "all allowed classic profiles are already connecting or connected");
+            return;
+        }
+
+        int result = mAdapterService.connectAllEnabledProfiles(device);
+        Log.i(TAG, log + "connectAllEnabledProfiles result=" + result);
+    }
+
     public void profileActiveDeviceChanged(int profile, BluetoothDevice device) {
         mHandler.post(() -> processActiveDeviceChanged(device, profile));
     }

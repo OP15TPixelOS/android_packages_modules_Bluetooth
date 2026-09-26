@@ -4421,10 +4421,24 @@ public class AdapterService extends Service {
     }
 
     /**
+     * Notify phone policy when a BR/EDR ACL connection is established. Some bonded audio devices
+     * bring up the ACL link first and wait for the phone to initiate A2DP/HFP.
+     */
+    public void notifyAclConnected(BluetoothDevice device, int transport) {
+        if (transport != BluetoothDevice.TRANSPORT_BREDR) {
+            return;
+        }
+        mPhonePolicy.ifPresent(policy -> policy.aclConnectionStateChanged(device, true));
+    }
+
+    /**
      * Notify {@link BluetoothProfile} when ACL connection disconnects from {@link BluetoothDevice}
      * for a given {@code transport}.
      */
     public void notifyAclDisconnected(BluetoothDevice device, int transport) {
+        if (transport == BluetoothDevice.TRANSPORT_BREDR) {
+            mPhonePolicy.ifPresent(policy -> policy.aclConnectionStateChanged(device, false));
+        }
         if (Flags.leHidConnectionPolicySuspend()) {
             mAdapterSuspend.ifPresent(
                     adapterSuspend -> adapterSuspend.aclDisconnected(device, transport));

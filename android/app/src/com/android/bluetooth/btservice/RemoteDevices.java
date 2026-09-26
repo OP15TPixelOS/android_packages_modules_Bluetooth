@@ -1836,6 +1836,7 @@ public class RemoteDevices {
                     device.toString(), /* success */
                     1, /* reason */
                     "");
+            mAdapterService.notifyAclConnected(device, transport);
         } else {
             deviceProperties.setDisconnected(transport);
             if (Flags.leHidConnectionPolicySuspend()) {
